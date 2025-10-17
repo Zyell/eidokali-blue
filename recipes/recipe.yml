@@ -3,43 +3,45 @@
 # image will be published to ghcr.io/<user>/<name>
 name: eidokali-blue
 # description will be included in the image's metadata
-description: This is my personal OS image.
+description: custom ublue image based on bluefin-dx
 
 # the base image to build on top of (FROM) and the version tag to use
-base-image: ghcr.io/ublue-os/silverblue-main
-image-version: 42 # latest is also supported if you want new updates ASAP
+base-image: ghcr.io/ublue-os/bluefin-dx
+image-version: latest
 
 # module configuration, executed in order
 # you can include multiple instances of the same module
 modules:
-  - type: files
-    files:
-      - source: system
-        destination: / # copies files/system/* (* means everything inside it) into your image's root folder /
+  - type: containerfile
+    snippets:
+      - RUN mkdir /nix # add empty nix folder for nix installation
 
   - type: dnf
     repos:
       copr:
-        - atim/starship
+        - ryanabx/cosmic-epoch
     install:
       packages:
-        - micro
-        - starship
-    remove:
-      packages:
-        # example: removing firefox (in favor of the flatpak)
-        # "firefox" is the main package, "firefox-langpacks" is a dependency
-        - firefox
-        - firefox-langpacks # also remove firefox dependency (not required for all packages, this is a special case)
+        - cosmic-desktop # install cosmic desktop environment
 
-  - type: default-flatpaks
-    configurations:
-      - notify: true # Send notification after install/uninstall is finished (true/false)
-        scope: system
-        # If no repo information is specified, Flathub will be used by default
-        install: # system flatpaks we want all users to have and not remove
-          - org.mozilla.firefox
-          - org.gnome.Loupe
-      - scope: user # Also add Flathub user repo, but no user packages
+  - type: script
+    scripts:
+      - proton_apps.sh # download latest, verify, and install proton apps
+
+  - type: files
+    files:
+      - source: proton_icons # copy proton icon svg replacements in
+        destination: /usr/share/icons/hicolor/scalable/apps/
+
+  - type: script
+    scripts:
+      - update_icons.sh # remove icons we don't want and update the icon cache
+
+  - type: gschema-overrides
+    include:
+      - zz1-dark-mode.gschema.override
 
   - type: signing # this sets up the proper policy & signing files for signed images to work fully
+
+  - type: containerfile
+
